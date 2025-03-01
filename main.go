@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
+	"strings"
 )
 
 func help() {
@@ -42,6 +44,7 @@ func addNote(fileName string, n string) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	fmt.Println("note added successfully!")
 }
 
 func listNotes(fileName string) {
@@ -57,12 +60,26 @@ func listNotes(fileName string) {
 		noteId += 1
 		fmt.Printf("%d. %s\n", noteId, sc.Text())
 	}
+	if noteId == 0 {
+		fmt.Println("You don't have any notes...")
+		return
+	}
 	if err := sc.Err(); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func deleteNote(fileName string, noteId int) {
+func deleteNote(fileName string, noteId string) {
+	id, err := strconv.Atoi(noteId)
+	if err != nil {
+		fmt.Println("error: please enter a number greater than 1 for the note id")
+		return
+	}
+	if id <= 0 {
+		fmt.Println("error: please enter a number greater than 1 for the note id")
+		return
+	}
+
 	file, err := os.OpenFile(fileName, os.O_RDWR, os.ModePerm)
 	if err != nil {
 		log.Fatal(err)
@@ -79,45 +96,59 @@ func deleteNote(fileName string, noteId int) {
 	var count int = 0
 	for sc.Scan() {
 		count += 1
-		if noteId != count {
+		if id != count {
 			tempFile.WriteString(sc.Text() + "\n")
 		}
 	}
 	os.Remove(fileName)
 	os.Rename("temp.txt", fileName)
+	fmt.Printf("note with id %d was deleted successfully!\n", id)
+}
+
+func parseUserInput(c string) string{
+	reader := bufio.NewReader(os.Stdin)
+	userCommandLine, _ := reader.ReadString('\n')
+	var firstWord string = ""
+	if len(strings.Fields(userCommandLine)) > 0 {
+		firstWord = strings.Fields(userCommandLine)[0]
+	}
+
+	switch c {
+	case "addNote":
+		return userCommandLine // Returns the whole user command line, for new notes
+	default:
+		return firstWord // Returns the first word in the command line, for getting commands or ids
+	}
 }
 
 func main() {
 	var fileName string = "notes.txt"
 	createFile(fileName)
-	
+
 	runApp := true
 	for runApp == true {
 		fmt.Print("todo: ")
-		reader := bufio.NewReader(os.Stdin)
-		var userCommand string = ""
-		fmt.Scanf("%s", &userCommand)
+		command := parseUserInput("command")
 
-		if userCommand == "exit" {
+		switch command {
+		case "add":
+			fmt.Print("enter a note: ")
+			addNote(fileName, parseUserInput("addNote"))
+		case "list":
+			listNotes(fileName)
+		case "delete":
+			fmt.Print("enter note id: ")
+			deleteNote(fileName, parseUserInput("deleteNote"))
+		case "help":
+			help()
+		case "clear":
+			fmt.Print("\033[H\033[2J")
+		case "exit":
 			fmt.Println("Bye")
 			return
-		} else if userCommand == "help" {
-			help()
-		} else if userCommand == "clear" {
-			fmt.Print("\033[H\033[2J")
-		} else if userCommand == "add" {
-			fmt.Print("enter a note: ")
-			note, _ := reader.ReadString('\n')
-			addNote(fileName, note)
-		} else if userCommand == "list" {
-			listNotes(fileName)
-		} else if userCommand == "delete" {
-			fmt.Print("enter note id: ")
-			var noteId int = 0
-			fmt.Scanf("%d", &noteId)
-			deleteNote(fileName, noteId)
-		} else if len(userCommand) >= 1 {
-			fmt.Printf("command not found: %s\n", userCommand)
-		} 
+		case "":
+		default:
+			fmt.Printf("command not found: %s\n", command)
+		}
 	}
 }
